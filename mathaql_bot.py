@@ -2,18 +2,18 @@
 """
 MathAql Premium Bot — @MATHAQL_UZ_BOT
 Spanel (Linux hosting) da ishlaydi.
-
+ 
 O'rnatish:
   pip3 install python-telegram-bot==20.7 --break-system-packages
-
+ 
 Ishga tushirish:
   python3 mathaql_bot.py
-
+ 
 Spanel uchun:
   screen -S mathaql_bot python3 mathaql_bot.py
   yoki systemd service qiling (quyida ko'rsatilgan)
 """
-
+ 
 import logging
 import json
 import os
@@ -22,7 +22,7 @@ import random
 import string
 from datetime import datetime, timedelta
 from pathlib import Path
-
+ 
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
     ReplyKeyboardMarkup, KeyboardButton
@@ -31,21 +31,21 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     CallbackQueryHandler, ContextTypes, filters
 )
-
+ 
 # ══════════════════════════════════════════════════
 # SOZLAMALAR — BU YERNI O'ZGARTIRING
 # ══════════════════════════════════════════════════
 BOT_TOKEN   = os.environ.get("BOT_TOKEN", "8770443554:AAEaNldDsRGWc7bLi2i-sq2t73X8WV-lXGI")
 ADMIN_IDS   = [7549818189]
-
+ 
 # To'lov rekvizitlari
 PAYME_CARD  = "5614 6838 6188 2512"
 CLICK_CARD  = "5614 6838 6188 2512"
 CARD_OWNER  = "ELYOR TOSHMATOV"
-
+ 
 # Ma'lumotlar fayli
 DATA_FILE   = Path("mathaql_data.json")
-
+ 
 # ══════════════════════════════════════════════════
 # LOGGING
 # ══════════════════════════════════════════════════
@@ -58,7 +58,7 @@ logging.basicConfig(
     ]
 )
 log = logging.getLogger(__name__)
-
+ 
 # ══════════════════════════════════════════════════
 # MA'LUMOTLAR BAZASI (JSON fayl)
 # ══════════════════════════════════════════════════
@@ -69,19 +69,19 @@ def load_data() -> dict:
         except Exception:
             pass
     return {"users": {}, "payments": {}, "codes": {}, "stats": {}}
-
+ 
 def save_data(data: dict):
     DATA_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
+ 
 def get_user(data: dict, user_id: int) -> dict:
     uid = str(user_id)
     if uid not in data["users"]:
         data["users"][uid] = {"id": user_id, "step": "start", "plan": None, "created": now_str()}
     return data["users"][uid]
-
+ 
 def now_str() -> str:
     return datetime.now().strftime("%d.%m.%Y %H:%M")
-
+ 
 # ══════════════════════════════════════════════════
 # KOD GENERATOR — MAQ-DDMM-YYYY + random
 # ══════════════════════════════════════════════════
@@ -93,7 +93,7 @@ def generate_code(plan: str) -> str:
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
     plan_tag = "YIL" if plan == "yearly" else "MKT" if plan == "school" else "OYL"
     return f"MAQ-{dd}{mm}-{yyyy}-{plan_tag[:2]}{suffix[:2]}"
-
+ 
 # ══════════════════════════════════════════════════
 # REJALARI
 # ══════════════════════════════════════════════════
@@ -120,7 +120,7 @@ PLANS = {
         "desc": "30 ta o'quvchi, o'qituvchi paneli, haftalik hisobot"
     }
 }
-
+ 
 # ══════════════════════════════════════════════════
 # /start — ASOSIY MENYU
 # ══════════════════════════════════════════════════
@@ -132,14 +132,14 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     u["username"] = user.username or ""
     u["step"]     = "main"
     save_data(data)
-
+ 
     text = (
         f"👋 Assalomu alaykum, *{user.first_name}*!\n\n"
         "🎓 *MathAql* — O'zbekiston №1 matematika platformasi\n"
         "mathaql.uz'da darslar ishlang, streak saqlang, DTM ga tayyorlaning!\n\n"
         "💳 *Premium sotib olish uchun quyidan tanlang:*"
     )
-
+ 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💡 Oylik — 49,000 so'm",  callback_data="plan_monthly")],
         [InlineKeyboardButton("🌟 Yillik — 299,000 so'm", callback_data="plan_yearly")],
@@ -147,7 +147,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("❓ Savol berish",           callback_data="support")],
     ])
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
-
+ 
     # Admin uchun bildiruv
     if user.id not in ADMIN_IDS:
         await notify_admins(
@@ -157,7 +157,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                  f"ID: {user.id}\n"
                  f"Vaqt: {now_str()}"
         )
-
+ 
 # ══════════════════════════════════════════════════
 # REJA TANLASH
 # ══════════════════════════════════════════════════
@@ -168,13 +168,13 @@ async def cb_plan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     p    = PLANS.get(plan)
     if not p:
         return
-
+ 
     data = load_data()
     u    = get_user(data, q.from_user.id)
     u["plan"] = plan
     u["step"] = "card_select"
     save_data(data)
-
+ 
     text = (
         f"{p['label']}\n\n"
         f"💰 Narx: *{p['price']}*\n"
@@ -194,7 +194,7 @@ async def cb_plan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("← Orqaga", callback_data="back_main")],
     ])
     await q.edit_message_text(text, parse_mode="Markdown", reply_markup=kb)
-
+ 
 # ══════════════════════════════════════════════════
 # KARTA TANLASH → TO'LOV MA'LUMOTLARI
 # ══════════════════════════════════════════════════
@@ -205,12 +205,12 @@ async def cb_card(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     p      = PLANS.get(plan)
     if not p:
         return
-
+ 
     data = load_data()
     u    = get_user(data, q.from_user.id)
     u["card_type"] = card_type
     u["step"]      = "awaiting_payment"
-
+ 
     # To'lov ID yaratish
     pay_id = f"pay_{q.from_user.id}_{int(datetime.now().timestamp())}"
     u["current_pay_id"] = pay_id
@@ -225,7 +225,7 @@ async def cb_card(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "created":   now_str()
     }
     save_data(data)
-
+ 
     # Karta rekvizitlari
     if card_type in ("humo", "uzcard", "naqd"):
         card_num  = PAYME_CARD
@@ -233,7 +233,7 @@ async def cb_card(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     else:
         card_num  = CLICK_CARD
         card_note = "Visa / MasterCard"
-
+ 
     text = (
         f"✅ *To'lov ma'lumotlari:*\n\n"
         f"📦 Tarif: *{p['label']}*\n"
@@ -253,7 +253,7 @@ async def cb_card(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("← Orqaga", callback_data=f"plan_{plan}")],
     ])
     await q.edit_message_text(text, parse_mode="Markdown", reply_markup=kb)
-
+ 
     # Adminga xabar
     admin_text = (
         f"💳 *Yangi to'lov so'rovi!*\n\n"
@@ -270,7 +270,7 @@ async def cb_card(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         InlineKeyboardButton("❌ Rad etish",   callback_data=f"admin_reject_{pay_id}_{q.from_user.id}"),
     ]])
     await notify_admins(ctx, admin_text, reply_markup=admin_kb)
-
+ 
 # ══════════════════════════════════════════════════
 # CHEK YUBORILDI XABARI
 # ══════════════════════════════════════════════════
@@ -283,7 +283,7 @@ async def cb_sent_receipt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "❓ Savol bo'lsa: @mathaql_support",
         parse_mode="Markdown"
     )
-
+ 
 # ══════════════════════════════════════════════════
 # RASM / HUJJAT — CHEK QABUL QILISH
 # ══════════════════════════════════════════════════
@@ -291,7 +291,7 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     data = load_data()
     u    = get_user(data, user.id)
-
+ 
     if u.get("step") == "awaiting_payment":
         # Foydalanuvchiga tasdiqlash xabari
         await update.message.reply_text(
@@ -301,7 +301,7 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             "🙏 Sabr qiling!",
             parse_mode="Markdown"
         )
-
+ 
         # Adminga chekni yuborish
         pay_id = u.get("current_pay_id", "—")
         plan   = u.get("plan", "monthly")
@@ -345,7 +345,7 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             "📸 Rasm qabul qilindi!\n"
             "Premium sotib olish uchun /start bosing."
         )
-
+ 
 # ══════════════════════════════════════════════════
 # ADMIN: TASDIQLASH → KOD YUBORISH
 # ══════════════════════════════════════════════════
@@ -355,7 +355,7 @@ async def cb_admin_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.answer("❌ Ruxsat yo'q!", show_alert=True)
         return
     await q.answer("✅ Tasdiqlandi!")
-
+ 
     # callback_data: admin_approve_{pay_id}_{plan}_{user_id}
     parts   = q.data.split("_")
     # admin_approve_pay_USERID_TIMESTAMP_plan_uid
@@ -366,11 +366,11 @@ async def cb_admin_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     pay_id   = tokens[0]
     plan     = tokens[1]
     user_id  = int(tokens[2])
-
+ 
     data   = load_data()
     code   = generate_code(plan)
     p      = PLANS.get(plan, PLANS["monthly"])
-
+ 
     # Kodni saqlash
     data["codes"][code] = {
         "plan":    plan,
@@ -383,7 +383,7 @@ async def cb_admin_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         data["payments"][pay_id]["status"] = "approved"
         data["payments"][pay_id]["code"]   = code
     save_data(data)
-
+ 
     # Foydalanuvchiga kod yuborish
     user_text = (
         f"🎉 *To'lovingiz tasdiqlandi!*\n\n"
@@ -393,7 +393,7 @@ async def cb_admin_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"`{code}`\n\n"
         f"*Kodni qanday ishlatish:*\n"
         f"1️⃣ mathaql.uz saytiga kiring\n"
-        f"2️⃣ To'lov → "Kodni kiritish" → Kodni yozing\n"
+        f"2\u20e3 To'lov → 'Kodni kiritish' → Kodni yozing\n"
         f"3️⃣ ✅ Premium aktivlandi!\n\n"
         f"❓ Muammo bo'lsa: @mathaql_support\n"
         f"🙏 MathAql'dan foydalanganingiz uchun rahmat!"
@@ -406,14 +406,14 @@ async def cb_admin_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         log.error(f"Foydalanuvchiga xabar yuborishda xato: {e}")
-
+ 
     # Admin xabari yangilash
     await q.edit_message_text(
         q.message.text + f"\n\n✅ *TASDIQLANDI* — Kod: `{code}`",
         parse_mode="Markdown"
     )
     log.info(f"Approved: {pay_id} → {code} → user {user_id}")
-
+ 
 # ══════════════════════════════════════════════════
 # ADMIN: RAD ETISH
 # ══════════════════════════════════════════════════
@@ -423,18 +423,18 @@ async def cb_admin_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.answer("❌ Ruxsat yo'q!", show_alert=True)
         return
     await q.answer("❌ Rad etildi")
-
+ 
     parts   = q.data.split("_")
     data_str = q.data[len("admin_reject_"):]
     tokens   = data_str.rsplit("_", 1)
     pay_id   = tokens[0]
     user_id  = int(tokens[1])
-
+ 
     data = load_data()
     if pay_id in data["payments"]:
         data["payments"][pay_id]["status"] = "rejected"
     save_data(data)
-
+ 
     try:
         await ctx.bot.send_message(
             chat_id=user_id,
@@ -448,12 +448,12 @@ async def cb_admin_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         log.error(f"Reject xabari xatosi: {e}")
-
+ 
     await q.edit_message_text(
         q.message.text + "\n\n❌ *RAD ETILDI*",
         parse_mode="Markdown"
     )
-
+ 
 # ══════════════════════════════════════════════════
 # ADMIN: /admin KOMANDASI
 # ══════════════════════════════════════════════════
@@ -471,7 +471,7 @@ async def cmd_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         for p in data["payments"].values()
         if p.get("status") == "approved"
     )
-
+ 
     text = (
         f"📊 *MathAql Admin Panel*\n\n"
         f"👤 Foydalanuvchilar: *{total_users}*\n"
@@ -488,7 +488,7 @@ async def cmd_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast")],
     ])
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
-
+ 
 # ══════════════════════════════════════════════════
 # ADMIN: KUTILAYOTGAN TO'LOVLAR
 # ══════════════════════════════════════════════════
@@ -497,13 +497,13 @@ async def cb_admin_pending(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if q.from_user.id not in ADMIN_IDS:
         await q.answer("❌ Ruxsat yo'q!"); return
     await q.answer()
-
+ 
     data    = load_data()
     pending = {k: v for k, v in data["payments"].items() if v.get("status") == "pending"}
     if not pending:
         await q.edit_message_text("✅ Hech qanday kutilayotgan to'lov yo'q!")
         return
-
+ 
     text = f"⏳ *Kutilayotgan to'lovlar: {len(pending)} ta*\n\n"
     buttons = []
     for pay_id, pay in list(pending.items())[:10]:
@@ -525,7 +525,7 @@ async def cb_admin_pending(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     buttons.append([InlineKeyboardButton("← Orqaga", callback_data="back_admin")])
     await q.edit_message_text(text, parse_mode="Markdown",
                                reply_markup=InlineKeyboardMarkup(buttons))
-
+ 
 # ══════════════════════════════════════════════════
 # ADMIN: KOD YARATISH
 # ══════════════════════════════════════════════════
@@ -534,7 +534,7 @@ async def cb_admin_gencode(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if q.from_user.id not in ADMIN_IDS:
         await q.answer("❌ Ruxsat yo'q!"); return
     await q.answer()
-
+ 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💡 Oylik", callback_data="gencode_monthly")],
         [InlineKeyboardButton("🌟 Yillik", callback_data="gencode_yearly")],
@@ -542,13 +542,13 @@ async def cb_admin_gencode(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ])
     await q.edit_message_text("🔑 Qaysi tarif uchun kod yaratilsin?",
                                reply_markup=kb)
-
+ 
 async def cb_gencode(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     if q.from_user.id not in ADMIN_IDS:
         await q.answer("❌ Ruxsat yo'q!"); return
     await q.answer()
-
+ 
     plan = q.data.replace("gencode_", "")
     code = generate_code(plan)
     p    = PLANS.get(plan, PLANS["monthly"])
@@ -558,7 +558,7 @@ async def cb_gencode(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "used": False, "user_id": None
     }
     save_data(data)
-
+ 
     await q.edit_message_text(
         f"✅ *Yangi kod yaratildi!*\n\n"
         f"🔑 Kod: `{code}`\n"
@@ -567,7 +567,7 @@ async def cb_gencode(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"Bu kodni foydalanuvchiga yuboring.",
         parse_mode="Markdown"
     )
-
+ 
 # ══════════════════════════════════════════════════
 # ADMIN: BROADCAST
 # ══════════════════════════════════════════════════
@@ -585,7 +585,7 @@ async def cb_admin_broadcast(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "_(Bekor qilish uchun /cancel)_",
         parse_mode="Markdown"
     )
-
+ 
 # ══════════════════════════════════════════════════
 # SUPPORT
 # ══════════════════════════════════════════════════
@@ -603,7 +603,7 @@ async def cb_support(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("← Asosiy menyu", callback_data="back_main")
         ]])
     )
-
+ 
 # ══════════════════════════════════════════════════
 # BACK BUTTONS
 # ══════════════════════════════════════════════════
@@ -622,7 +622,7 @@ async def cb_back_main(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
         reply_markup=kb
     )
-
+ 
 # ══════════════════════════════════════════════════
 # MATN XABARLAR
 # ══════════════════════════════════════════════════
@@ -631,7 +631,7 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     data = load_data()
     u    = get_user(data, user.id)
-
+ 
     # Broadcast mode (admin)
     if user.id in ADMIN_IDS and u.get("step") == "broadcast":
         u["step"] = "main"
@@ -649,14 +649,14 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 pass
         await update.message.reply_text(f"✅ {sent} ta foydalanuvchiga yuborildi!")
         return
-
+ 
     # /cancel
     if text.lower() in ("/cancel", "bekor"):
         u["step"] = "main"
         save_data(data)
         await update.message.reply_text("❌ Bekor qilindi. /start bosing.")
         return
-
+ 
     # Default
     await update.message.reply_text(
         "👋 Salom!\n\nPremium sotib olish uchun /start bosing.\n"
@@ -665,7 +665,7 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🚀 Boshlash", callback_data="back_main")
         ]])
     )
-
+ 
 # ══════════════════════════════════════════════════
 # ADMIN NOTIFY HELPER
 # ══════════════════════════════════════════════════
@@ -680,20 +680,20 @@ async def notify_admins(ctx, text: str, reply_markup=None):
             )
         except Exception as e:
             log.error(f"Admin notify xatosi: {e}")
-
+ 
 # ══════════════════════════════════════════════════
 # ASOSIY — BOT ISHGA TUSHIRISH
 # ══════════════════════════════════════════════════
 def main():
     log.info("🚀 MathAql Bot ishga tushmoqda...")
-
+ 
     app = Application.builder().token(BOT_TOKEN).build()
-
+ 
     # Komandalar
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("admin",  cmd_admin))
     app.add_handler(CommandHandler("cancel", lambda u,c: handle_text(u,c)))
-
+ 
     # Callback query lar
     app.add_handler(CallbackQueryHandler(cb_plan,           pattern="^plan_"))
     app.add_handler(CallbackQueryHandler(cb_card,           pattern="^card_"))
@@ -706,15 +706,16 @@ def main():
     app.add_handler(CallbackQueryHandler(cb_gencode,        pattern="^gencode_"))
     app.add_handler(CallbackQueryHandler(cb_support,        pattern="^support"))
     app.add_handler(CallbackQueryHandler(cb_back_main,      pattern="^back_main"))
-
+ 
     # Rasm va hujjat (chek)
     app.add_handler(MessageHandler(filters.PHOTO | filters.Document.ALL, handle_photo))
-
+ 
     # Matn
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-
+ 
     log.info("✅ Bot tayyor! Polling boshlandi...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
-
+ 
 if __name__ == "__main__":
     main()
+ 
