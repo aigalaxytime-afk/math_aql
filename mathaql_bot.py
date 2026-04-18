@@ -448,12 +448,19 @@ async def cb_admin_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await ctx.bot.send_message(
             chat_id=user_id,
             text=(
-                "❌ *To'lovingiz tasdiqlanmadi.*\n\n"
-                "Sabab: To'lov summasi noto'g'ri yoki chek aniq emas.\n\n"
-                "Qayta to'lov qilish uchun /start bosing.\n"
-                "❓ Muammo: @mathaql_support"
+                "❌ *To'lovingiz rad etildi!*\n\n"
+                "⚠️ Sabab: Yuborgan chekingiz soxta yoki noto'g'ri ko'rinadi.\n\n"
+                "✅ *Iltimos, REAL chek yuboring:*\n"
+                "• To'lov qilgandan keyin bankdan kelgan SMS screenshot\n"
+                "• Yoki ilovadagi to'lov tasdig'i rasmini yuboring\n\n"
+                "Biz har bir chekni diqqat bilan ko'rib chiqamiz.\n"
+                "Real to'lov bo'lsa, 5 daqiqa ichida kod yuboriladi! 🔑\n\n"
+                "Qayta /start bosing va chek yuboring."
             ),
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔄 Qayta urinish", url="https://t.me/mathaql_uz_bot")
+            ]])
         )
     except Exception as e:
         log.error(f"Reject xabari xatosi: {e}")
@@ -775,3 +782,4 @@ def main():
  
 if __name__ == "__main__":
     main()
+ 
