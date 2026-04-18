@@ -22,8 +22,11 @@ import random
 import string
 import hmac
 import hashlib
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
  
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
@@ -91,16 +94,14 @@ def now_str() -> str:
 # KOD GENERATOR — MAQ-DDMM-YYYY + random
 # ══════════════════════════════════════════════════
 def generate_code(plan: str) -> str:
+    """Har foydalanuvchiga unikal, 1 martalik kod"""
     d = datetime.now()
     dd   = d.strftime("%d")
     mm   = d.strftime("%m")
     yyyy = d.strftime("%Y")
     plan_tag = "YIL" if plan == "yearly" else "MKT" if plan == "school" else "OYL"
-    # Bazaviy kod
-    base = f"MAQ-{dd}{mm}-{yyyy}-{plan_tag}"
-    # HMAC imzo (4 belgi) — soxta kod kiritmasa bo'lmaydi
-    sig = hmac.new(SECRET_KEY.encode(), base.encode(), hashlib.sha256).hexdigest()[:4].upper()
-    return f"{base}-{sig}"
+    unique = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    return f"MAQ-{dd}{mm}-{yyyy}-{plan_tag}-{unique}"
  
 # ══════════════════════════════════════════════════
 # REJALARI
@@ -689,11 +690,59 @@ async def notify_admins(ctx, text: str, reply_markup=None):
         except Exception as e:
             log.error(f"Admin notify xatosi: {e}")
  
+ 
+# ══════════════════════════════════════════════════
+# HTTP SERVER — Sayt kod tekshirish uchun
+# ══════════════════════════════════════════════════
+class CodeVerifyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        
+        if parsed.path == "/verify":
+            code = params.get("code", [""])[0].upper().strip()
+            data = load_data()
+            
+            # Kodni tekshirish
+            found = data["codes"].get(code)
+            if not found:
+                result = {"ok": False, "reason": "notfound"}
+            elif found.get("used"):
+                result = {"ok": False, "reason": "used"}
+            else:
+                plan = found.get("plan", "monthly")
+                # Ishlatilgan deb belgilash
+                data["codes"][code]["used"] = True
+                data["codes"][code]["used_at"] = now_str()
+                save_data(data)
+                result = {"ok": True, "plan": plan}
+            
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def log_message(self, format, *args):
+        pass  # Log chiqarmaslik
+ 
+def start_http_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), CodeVerifyHandler)
+    log.info(f"✅ HTTP server: port {port}")
+    server.serve_forever()
+ 
 # ══════════════════════════════════════════════════
 # ASOSIY — BOT ISHGA TUSHIRISH
 # ══════════════════════════════════════════════════
 def main():
     log.info("🚀 MathAql Bot ishga tushmoqda...")
+    # HTTP server ni alohida threadda ishga tushirish
+    t = threading.Thread(target=start_http_server, daemon=True)
+    t.start()
  
     app = Application.builder().token(BOT_TOKEN).build()
  
@@ -726,4 +775,3 @@ def main():
  
 if __name__ == "__main__":
     main()
- 
