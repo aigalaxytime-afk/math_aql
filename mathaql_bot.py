@@ -386,7 +386,7 @@ async def cb_admin_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
  
     # Foydalanuvchiga kod yuborish
     user_text = (
-        f"🎉 *To'lovingiz tasdiqlandi!*\n\n"
+        f"2️⃣ To'lov - Kodni kiritish - Kodni yozing\n"
         f"📦 Tarif: *{p['label']}*\n"
         f"📅 Muddat: *{p['days']} kun*\n\n"
         f"🔑 *Aktivatsiya kodingiz:*\n"
