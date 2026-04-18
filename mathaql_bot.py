@@ -20,6 +20,8 @@ import os
 import re
 import random
 import string
+import hmac
+import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
  
@@ -39,9 +41,12 @@ BOT_TOKEN   = os.environ.get("BOT_TOKEN", "8770443554:AAEaNldDsRGWc7bLi2i-sq2t73
 ADMIN_IDS   = [7549818189]
  
 # To'lov rekvizitlari
-PAYME_CARD  = "5614 6838 6188 2512"
-CLICK_CARD  = "5614 6838 6188 2512"
-CARD_OWNER  = "ELYOR TOSHMATOV"
+PAYME_CARD  = "5614 6838 6188 2512"   # Humo/UzCard
+CLICK_CARD  = "4916 9903 1051 3137"   # Visa/MasterCard
+CARD_OWNER  = "ARZIYEVA MARIFAT"
+ 
+# Kriptografik imzo kaliti (sayt bilan bir xil bo'lishi shart!)
+SECRET_KEY  = "MATHAQL_SECRET_2024_UZ"
  
 # Ma'lumotlar fayli
 DATA_FILE   = Path("mathaql_data.json")
@@ -90,9 +95,12 @@ def generate_code(plan: str) -> str:
     dd   = d.strftime("%d")
     mm   = d.strftime("%m")
     yyyy = d.strftime("%Y")
-    suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
     plan_tag = "YIL" if plan == "yearly" else "MKT" if plan == "school" else "OYL"
-    return f"MAQ-{dd}{mm}-{yyyy}-{plan_tag[:2]}{suffix[:2]}"
+    # Bazaviy kod
+    base = f"MAQ-{dd}{mm}-{yyyy}-{plan_tag}"
+    # HMAC imzo (4 belgi) — soxta kod kiritmasa bo'lmaydi
+    sig = hmac.new(SECRET_KEY.encode(), base.encode(), hashlib.sha256).hexdigest()[:4].upper()
+    return f"{base}-{sig}"
  
 # ══════════════════════════════════════════════════
 # REJALARI
@@ -386,7 +394,7 @@ async def cb_admin_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
  
     # Foydalanuvchiga kod yuborish
     user_text = (
-        f"2️⃣ To'lov - Kodni kiritish - Kodni yozing\n"
+        f"🎉 *To'lovingiz tasdiqlandi!*\n\n"
         f"📦 Tarif: *{p['label']}*\n"
         f"📅 Muddat: *{p['days']} kun*\n\n"
         f"🔑 *Aktivatsiya kodingiz:*\n"
